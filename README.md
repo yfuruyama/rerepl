@@ -16,3 +16,10 @@ matched: true
 captures:
   1: 123
 ```
+
+Install
+---
+
+```
+$ go install
+```
