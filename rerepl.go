@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,6 +10,11 @@ import (
 
 	"github.com/peterh/liner"
 )
+
+type Result struct {
+	matched  bool
+	captures []string
+}
 
 func main() {
 	liner := liner.NewLiner()
@@ -33,25 +39,16 @@ func main() {
 		}
 		liner.AppendHistory(line)
 
-		patternAndTarget := strings.SplitN(line, " ", 2)
-		if len(patternAndTarget) != 2 {
-			fmt.Printf("invalid input: %s\n", line)
+		result, err := EvalLine(line)
+		if err != nil {
+			fmt.Printf(err.Error())
 			continue
 		}
 
-		pattern := patternAndTarget[0]
-		target := patternAndTarget[1]
-
-		re, err := regexp.Compile(pattern)
-		matched := re.MatchString(target)
-		groups := re.FindStringSubmatch(target)
-
-		fmt.Printf("matched: %t\n", matched)
+		fmt.Printf("matched: %t\n", result.matched)
 		fmt.Printf("captures: \n")
-		if groups != nil {
-			for idx, value := range groups[1:] {
-				fmt.Printf("  %d: %s\n", idx+1, value)
-			}
+		for idx, value := range result.captures {
+			fmt.Printf("  %d: %s\n", idx+1, value)
 		}
 	}
 
@@ -60,4 +57,35 @@ func main() {
 		liner.WriteHistory(f)
 		f.Close()
 	}
+}
+
+func EvalLine(line string) (*Result, error) {
+	patternAndTarget := strings.SplitN(line, " ", 2)
+	if len(patternAndTarget) != 2 {
+		return nil, errors.New(fmt.Sprintf("invalid input: %s\n", line))
+	}
+
+	pattern := patternAndTarget[0]
+	target := patternAndTarget[1]
+
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("invalid regexp: %s\n", pattern))
+	}
+
+	matched := re.MatchString(target)
+	groups := re.FindStringSubmatch(target)
+
+	captures := make([]string, 0)
+
+	if groups != nil {
+		for _, value := range groups[1:] {
+			captures = append(captures, value)
+		}
+	}
+
+	return &Result{
+		matched:  matched,
+		captures: captures,
+	}, nil
 }
